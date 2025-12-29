@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import { connectDB } from '@/lib/db';
-import User from '@/models/User';
+import User, { IUser } from '@/models/User'; // ← Add IUser import
 import { registerSchema } from '@/validators/auth.schema';
 import { errorResponse, createdResponse } from '@/lib/api-response';
 import { ValidationError, ConflictError, AppError } from '@/lib/errors';
@@ -39,15 +39,15 @@ export async function POST(request: NextRequest) {
       throw new ConflictError('An account with this email already exists');
     }
 
-    // Create new user
-    const user = await User.create({
+    // Create new user with explicit type annotation
+    const user: IUser = await User.create({
       email,
       password, // Will be hashed by pre-save middleware
       firstName,
       lastName,
       role: 'USER',
       isActive: true,
-      isVerified: false, // In production, send verification email
+      isVerified: false,
     });
 
     // Generate tokens
