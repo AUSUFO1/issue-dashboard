@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import { connectDB } from '@/lib/db';
-import User, { IUser } from '@/models/User'; // ← Add IUser import
+import User, { IUser } from '@/models/User';
 import { registerSchema } from '@/validators/auth.schema';
 import { errorResponse, createdResponse } from '@/lib/api-response';
 import { ValidationError, ConflictError, AppError } from '@/lib/errors';

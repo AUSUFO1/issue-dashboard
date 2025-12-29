@@ -15,9 +15,10 @@ interface AuthContextType {
 }
 
 interface RegisterData {
-  name: string;
   email: string;
   password: string;
+  firstName: string;
+  lastName: string;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -35,16 +36,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Auto-refresh token every 10 minutes
   useEffect(() => {
-    if (!accessToken) return; // FIX: Add early return
+    if (!accessToken) {
+      return;
+    }
 
     const interval = setInterval(
       () => {
         refreshToken();
       },
       10 * 60 * 1000
-    ); // 10 minutes
+    );
 
-    return () => clearInterval(interval); // This now always runs when there's an interval
+    return () => clearInterval(interval);
   }, [accessToken]);
 
   const checkAuth = async () => {
@@ -79,7 +82,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       if (response.ok) {
         const data = await response.json();
-        setUser(data.data);
+        setUser(data.data.user);
       }
     } catch (error) {
       console.error('Failed to fetch user profile:', error);
@@ -99,7 +102,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const data = await response.json();
 
     if (!response.ok) {
-      throw new Error(data.error || 'Login failed');
+      throw new Error(data.error?.message || 'Login failed');
     }
 
     setUser(data.data.user);
@@ -121,7 +124,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const data = await response.json();
 
     if (!response.ok) {
-      throw new Error(data.error || 'Registration failed');
+      throw new Error(data.error?.message || 'Registration failed');
     }
 
     setUser(data.data.user);
@@ -157,11 +160,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setAccessToken(data.data.accessToken);
       } else {
         // Refresh failed, logout user
-        await logout();
+        logout();
       }
     } catch (error) {
       console.error('Token refresh failed:', error);
-      await logout();
+      logout();
     }
   };
 

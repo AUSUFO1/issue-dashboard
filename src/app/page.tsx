@@ -30,21 +30,42 @@ export default function Home() {
   }
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center p-24">
-      <div className="text-center space-y-6">
-        <h1 className="text-4xl font-bold">Issue Dashboard</h1>
-        <p className="text-muted-foreground text-lg max-w-md">
-          Production-grade issue management system built with Next.js,
-          TypeScript, and MongoDB.
+    <main
+      className="
+        flex min-h-screen flex-col items-center px-6
+        justify-start
+        pt-20
+        md:pt-50
+        lg:justify-center lg:pt-0
+      "
+    >
+      <div className="text-center space-y-4 max-w-xl">
+        {/* Headline */}
+        <h1 className="text-3xl md:text-5xl font-bold tracking-tight">
+          Your Central Hub for Issue Tracking
+        </h1>
+
+        {/* Subheading */}
+        <p className="text-muted-foreground md:text-2xl text-lg">
+          Log issues, assign tasks, and monitor progress — all from one clean,
+          production-ready dashboard built for modern teams.
         </p>
-        <div className="flex gap-4 justify-center">
-          <Button asChild>
-            <Link href="/login">Login</Link>
+
+        {/* CTA Buttons */}
+        <div className="flex gap-4 justify-center pt-4">
+          <Button asChild size="lg">
+            <Link href="/login">Get Started</Link>
           </Button>
-          <Button asChild variant="outline">
-            <Link href="/register">Register</Link>
+
+          <Button asChild size="lg" variant="outline">
+            <Link href="/register">Create Account</Link>
           </Button>
         </div>
+
+        {/* Micro trust / helper text */}
+        <p className="text-sm text-muted-foreground pt-2">
+          Simple setup. Secure access. Built for speed.
+        </p>
       </div>
     </main>
   );

@@ -23,16 +23,19 @@ export function RegisterForm() {
     formState: { errors },
   } = useForm<RegisterInput>({
     resolver: zodResolver(registerSchema),
+    mode: 'onChange',
   });
 
   const onSubmit = async (data: RegisterInput) => {
     setIsLoading(true);
     try {
       await registerUser({
-        name: `${data.firstName} ${data.lastName}`,
         email: data.email,
         password: data.password,
+        firstName: data.firstName,
+        lastName: data.lastName,
       });
+
       toast({
         title: 'Account created!',
         description: 'Welcome to Issue Dashboard.',
@@ -63,7 +66,8 @@ export function RegisterForm() {
             <Label htmlFor="firstName">First Name</Label>
             <Input
               id="firstName"
-              placeholder="Mikel"
+              type="text"
+              placeholder="John"
               {...register('firstName')}
               disabled={isLoading}
             />
@@ -78,7 +82,8 @@ export function RegisterForm() {
             <Label htmlFor="lastName">Last Name</Label>
             <Input
               id="lastName"
-              placeholder="Smith"
+              type="text"
+              placeholder="Doe"
               {...register('lastName')}
               disabled={isLoading}
             />
