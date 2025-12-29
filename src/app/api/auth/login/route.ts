@@ -9,12 +9,20 @@ import {
   hashRefreshToken,
   getRefreshTokenExpiry,
 } from '@/lib/auth';
+import { rateLimit, RATE_LIMITS } from '@/middleware/rate-limit';
 
-/**
+/*
  * POST /api/auth/login
  * Authenticate user and return tokens
+ * Rate limited to prevent brute force attacks
  */
 export async function POST(request: NextRequest) {
+  // Apply rate limiting
+  const rateLimitResult = await rateLimit(RATE_LIMITS.AUTH)(request);
+  if (rateLimitResult) {
+    return rateLimitResult; // Return rate limit error
+  }
+
   try {
     // Connect to database
     await connectDB();
@@ -46,7 +54,7 @@ export async function POST(request: NextRequest) {
       );
       throw new AppError(
         `Account is locked due to multiple failed login attempts. Try again in ${lockTimeRemaining} minutes.`,
-        423, // 423 Locked
+        423,
         'ACCOUNT_LOCKED'
       );
     }
@@ -82,7 +90,7 @@ export async function POST(request: NextRequest) {
     });
     await user.save();
 
-    // Prepare response data (exclude sensitive fields)
+    // Prepare response data
     const userData = {
       id: user._id.toString(),
       email: user.email,
@@ -94,7 +102,7 @@ export async function POST(request: NextRequest) {
       createdAt: user.createdAt.toISOString(),
     };
 
-    // Create response with refresh token in HTTP-only cookie
+    // Create response
     const response = successResponse(
       {
         user: userData,
@@ -108,7 +116,7 @@ export async function POST(request: NextRequest) {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'strict',
-      maxAge: 7 * 24 * 60 * 60, // 7 days in seconds
+      maxAge: 7 * 24 * 60 * 60,
       path: '/',
     });
 

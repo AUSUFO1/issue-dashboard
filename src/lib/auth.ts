@@ -8,7 +8,7 @@ const REFRESH_TOKEN_SECRET = process.env.REFRESH_TOKEN_SECRET || '';
 const REFRESH_TOKEN_EXPIRES_IN = process.env.REFRESH_TOKEN_EXPIRES_IN || '7d';
 
 if (!JWT_SECRET || !REFRESH_TOKEN_SECRET) {
-  throw new Error('JWT secrets must be defined in environment variables');
+  throw new Error('JWT secrets defined in environment variables');
 }
 
 export interface JWTPayload {
