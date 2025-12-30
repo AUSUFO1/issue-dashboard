@@ -9,15 +9,15 @@ export default function DashboardPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-3xl font-bold tracking-tight">
+        <h2 className="text-2xl font-bold tracking-tight lg:text-3xl">
           Welcome back, {user?.firstName}!
         </h2>
-        <p className="text-muted-foreground">
+        <p className="text-sm text-muted-foreground lg:text-base">
           Here's what's happening with your issues today.
         </p>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Issues</CardTitle>
@@ -64,7 +64,7 @@ export default function DashboardPage() {
           <CardTitle>Getting Started</CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-muted-foreground">
+          <p className="text-sm text-muted-foreground lg:text-base">
             Your dashboard is ready! In the next phase, we'll add the ability to
             create and manage issues.
           </p>

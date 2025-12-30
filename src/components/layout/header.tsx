@@ -11,9 +11,13 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { LogOut, User } from 'lucide-react';
+import { LogOut, User, Menu } from 'lucide-react';
 
-export function Header() {
+interface HeaderProps {
+  onMenuClick: () => void;
+}
+
+export function Header({ onMenuClick }: HeaderProps) {
   const { user, logout } = useAuth();
 
   const getInitials = (firstName: string, lastName: string) => {
@@ -21,10 +25,18 @@ export function Header() {
   };
 
   return (
-    <header className="border-b bg-background">
-      <div className="flex h-16 items-center justify-between px-6">
-        <div>
-          <h1 className="text-xl font-semibold">Issue Dashboard</h1>
+    <header className="sticky top-0 z-10 border-b bg-background">
+      <div className="flex h-16 items-center justify-between px-4 lg:px-6">
+        <div className="flex items-center gap-3">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="lg:hidden"
+            onClick={onMenuClick}
+          >
+            <Menu className="h-6 w-6" />
+          </Button>
+          <h1 className="text-lg font-semibold lg:text-xl">Issue Dashboard</h1>
         </div>
 
         <div className="flex items-center gap-4">
