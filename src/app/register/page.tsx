@@ -2,8 +2,10 @@ import { RegisterForm } from '@/components/features/auth/register-form';
 
 export default function RegisterPage() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background p-4">
-      <RegisterForm />
+    <div className="min-h-screen bg-background">
+      <div className="container mx-auto flex min-h-screen items-start justify-center px-4 py-8 md:py-12 lg:items-center lg:py-0">
+        <RegisterForm />
+      </div>
     </div>
   );
 }
