@@ -1,35 +1,42 @@
 import {
-  ROLES,
-  ISSUE_STATUS,
-  ISSUE_PRIORITY,
-  ISSUE_TYPE,
+  UserRole,
+  IssueStatus,
+  IssuePriority,
+  IssueType,
 } from '@/lib/constants';
 
-// Extract type from const object
-export type Role = (typeof ROLES)[keyof typeof ROLES];
-export type IssueStatus = (typeof ISSUE_STATUS)[keyof typeof ISSUE_STATUS];
-export type IssuePriority =
-  (typeof ISSUE_PRIORITY)[keyof typeof ISSUE_PRIORITY];
-export type IssueType = (typeof ISSUE_TYPE)[keyof typeof ISSUE_TYPE];
+// USER TYPES
 
-// User Types
 export interface User {
   id: string;
   email: string;
   firstName: string;
   lastName: string;
-  role: Role;
-  isActive: boolean;
-  isVerified: boolean;
+  role: UserRole;
   createdAt: string;
   updatedAt: string;
 }
 
-export interface UserProfile extends User {
-  // Additional profile fields if needed
+export interface AuthTokens {
+  accessToken: string;
+  refreshToken: string;
 }
 
-// Issue Types
+export interface AuthResponse {
+  user: User;
+  tokens: AuthTokens;
+}
+
+export interface DecodedToken {
+  userId: string;
+  email: string;
+  role: UserRole;
+  iat: number;
+  exp: number;
+}
+
+// ISSUE TYPES
+
 export interface Issue {
   id: string;
   title: string;
@@ -38,99 +45,170 @@ export interface Issue {
   priority: IssuePriority;
   type: IssueType;
   tags: string[];
-  reportedBy: User;
-  assignedTo: User | null;
+  assignedTo?: User | string | null;
+  reportedBy: User | string;
+  resolvedAt?: string | null;
+  closedAt?: string | null;
+  deletedAt?: string | null;
   createdAt: string;
   updatedAt: string;
-  resolvedAt: string | null;
+  resolutionTime?: number | null; // Virtual field (hours)
 }
 
-export interface IssueDetail extends Issue {
-  comments: Comment[];
-  auditLogs: AuditLog[];
+export interface IssueListItem {
+  id: string;
+  title: string;
+  status: IssueStatus;
+  priority: IssuePriority;
+  type: IssueType;
+  tags: string[];
+  assignedTo?: {
+    id: string;
+    firstName: string;
+    lastName: string;
+  } | null;
+  reportedBy: {
+    id: string;
+    firstName: string;
+    lastName: string;
+  };
+  createdAt: string;
+  updatedAt: string;
 }
 
-// Comment Types
+export interface CreateIssueDTO {
+  title: string;
+  description: string;
+  type: IssueType;
+  priority: IssuePriority;
+  tags?: string[];
+  assignedTo?: string; // User ID
+}
+
+export interface UpdateIssueDTO {
+  title?: string;
+  description?: string;
+  status?: IssueStatus;
+  priority?: IssuePriority;
+  type?: IssueType;
+  tags?: string[];
+  assignedTo?: string | null; // User ID or null to unassign
+}
+
+export interface IssueFilters {
+  status?: IssueStatus | IssueStatus[];
+  priority?: IssuePriority | IssuePriority[];
+  type?: IssueType | IssueType[];
+  assignedTo?: string; // User ID
+  reportedBy?: string; // User ID
+  search?: string; // Full-text search
+  tags?: string[]; // Filter by tags
+}
+
+// COMMENT TYPES
+
 export interface Comment {
   id: string;
   issueId: string;
-  userId: string;
-  user: User;
+  userId: string | User;
   text: string;
+  isEdited: boolean;
+  editedAt?: string | null;
+  deletedAt?: string | null;
   createdAt: string;
   updatedAt: string;
 }
 
-// Audit Log Types
+export interface CreateCommentDTO {
+  text: string;
+}
+
+export interface UpdateCommentDTO {
+  text: string;
+}
+
+// AUDIT LOG TYPES
+
+export enum AuditAction {
+  CREATED = 'CREATED',
+  UPDATED = 'UPDATED',
+  DELETED = 'DELETED',
+  ASSIGNED = 'ASSIGNED',
+  UNASSIGNED = 'UNASSIGNED',
+  STATUS_CHANGED = 'STATUS_CHANGED',
+  PRIORITY_CHANGED = 'PRIORITY_CHANGED',
+  COMMENTED = 'COMMENTED',
+  COMMENT_EDITED = 'COMMENT_EDITED',
+  COMMENT_DELETED = 'COMMENT_DELETED',
+}
+
 export interface AuditLog {
   id: string;
   issueId: string;
-  userId: string;
-  user: User;
-  action: string;
-  changes: Record<string, { old: any; new: any }>;
-  timestamp: string;
+  userId: string | User;
+  action: AuditAction;
+  field?: string;
+  oldValue?: string;
+  newValue?: string;
+  metadata?: Record<string, any>;
+  createdAt: string;
 }
 
-// API Response Types
-export interface ApiResponse<T = any> {
-  success: boolean;
-  data?: T;
-  error?: ApiError;
-  message?: string;
-  meta?: PaginationMeta;
-}
+// PAGINATION TYPES
 
-export interface ApiError {
-  code: string;
-  message: string;
-  details?: any;
-  statusCode: number;
-}
-
-export interface PaginationMeta {
-  page: number;
-  limit: number;
-  total: number;
-  totalPages: number;
-}
-
-// Auth Types
-export interface LoginCredentials {
-  email: string;
-  password: string;
-}
-
-export interface RegisterData {
-  email: string;
-  password: string;
-  firstName: string;
-  lastName: string;
-}
-
-export interface AuthResponse {
-  user: User;
-  accessToken: string;
-}
-
-// Query Types
-export interface IssueFilters {
+export interface PaginationParams {
   page?: number;
   limit?: number;
-  status?: IssueStatus[];
-  priority?: IssuePriority[];
-  type?: IssueType[];
-  assignedTo?: string;
-  reportedBy?: string;
-  search?: string;
-  sortBy?: 'createdAt' | 'updatedAt' | 'priority';
+  sortBy?: string;
   sortOrder?: 'asc' | 'desc';
 }
 
-// Stats Types
+export interface PaginatedResponse<T> {
+  data: T[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+    hasNextPage: boolean;
+    hasPrevPage: boolean;
+  };
+}
+
+// API RESPONSE TYPES
+
+export interface ApiSuccessResponse<T = any> {
+  success: true;
+  data: T;
+  message?: string;
+}
+
+export interface ApiErrorResponse {
+  success: false;
+  error: {
+    message: string;
+    code?: string;
+    details?: any;
+  };
+}
+
+export type ApiResponse<T = any> = ApiSuccessResponse<T> | ApiErrorResponse;
+
+// DASHBOARD STATS TYPES
+
 export interface DashboardStats {
-  total: number;
-  byStatus: Record<IssueStatus, number>;
-  byPriority: Record<IssuePriority, number>;
-  recentIssues: Issue[];
+  totalIssues: number;
+  openIssues: number;
+  inProgressIssues: number;
+  resolvedIssues: number;
+  closedIssues: number;
+  myAssignedIssues: number;
+  myReportedIssues: number;
+  criticalIssues: number;
+  highPriorityIssues: number;
+  averageResolutionTime: number; // in hours
+  issuesByStatus: Record<IssueStatus, number>;
+  issuesByPriority: Record<IssuePriority, number>;
+  issuesByType: Record<IssueType, number>;
+  recentActivity: AuditLog[];
 }
