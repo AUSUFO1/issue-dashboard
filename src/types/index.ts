@@ -154,6 +154,19 @@ export interface AuditLog {
   createdAt: string;
 }
 
+// Populated version for API responses
+export interface PopulatedAuditLog {
+  id: string;
+  issueId: string | { title: string };
+  userId: string | { firstName: string; lastName: string; email: string };
+  action: AuditAction;
+  field?: string;
+  oldValue?: string;
+  newValue?: string;
+  metadata?: Record<string, any>;
+  createdAt: string;
+}
+
 // PAGINATION TYPES
 
 export interface PaginationParams {
@@ -210,5 +223,5 @@ export interface DashboardStats {
   issuesByStatus: Record<IssueStatus, number>;
   issuesByPriority: Record<IssuePriority, number>;
   issuesByType: Record<IssueType, number>;
-  recentActivity: AuditLog[];
+  recentActivity: PopulatedAuditLog[];
 }
