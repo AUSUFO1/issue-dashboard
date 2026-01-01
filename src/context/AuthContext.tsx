@@ -4,21 +4,22 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { User } from '@/types';
 
-interface AuthContextType {
-  user: User | null;
-  accessToken: string | null;
-  isLoading: boolean;
-  login: (email: string, password: string) => Promise<void>;
-  register: (data: RegisterData) => Promise<void>;
-  logout: () => Promise<void>;
-  refreshToken: () => Promise<void>;
-}
-
 interface RegisterData {
   email: string;
   password: string;
   firstName: string;
   lastName: string;
+}
+
+interface AuthContextType {
+  user: User | null;
+  accessToken: string | null;
+  isLoading: boolean;
+  isAuthenticated: boolean;
+  login: (email: string, password: string) => Promise<void>;
+  register: (data: RegisterData) => Promise<void>;
+  logout: () => Promise<void>;
+  refreshToken: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -27,18 +28,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+
   const router = useRouter();
 
-  // Check if user is logged in on mount
+  /* INITIAL AUTH CHECK (FIRST LOAD) */
   useEffect(() => {
     checkAuth();
   }, []);
 
-  // Auto-refresh token every 10 minutes
+  /* AUTO REFRESH TOKEN */
   useEffect(() => {
-    if (!accessToken) {
-      return;
-    }
+    if (!accessToken) return;
 
     const interval = setInterval(
       () => {
@@ -52,19 +52,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const checkAuth = async () => {
     try {
-      // Try to refresh token (will use HTTP-only cookie)
       const response = await fetch('/api/auth/refresh', {
         method: 'POST',
         credentials: 'include',
       });
 
-      if (response.ok) {
-        const data = await response.json();
-        setAccessToken(data.data.accessToken);
-
-        // Fetch user profile
-        await fetchUserProfile(data.data.accessToken);
+      if (!response.ok) {
+        return;
       }
+
+      const data = await response.json();
+      const token = data.data.accessToken;
+
+      setAccessToken(token);
+      await fetchUserProfile(token);
     } catch (error) {
       console.error('Auth check failed:', error);
     } finally {
@@ -80,21 +81,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         },
       });
 
-      if (response.ok) {
-        const data = await response.json();
-        setUser(data.data.user);
-      }
+      if (!response.ok) return;
+
+      const data = await response.json();
+      setUser(data.data.user);
     } catch (error) {
       console.error('Failed to fetch user profile:', error);
     }
   };
 
+  /* LOGIN */
   const login = async (email: string, password: string) => {
     const response = await fetch('/api/auth/login', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password }),
       credentials: 'include',
     });
@@ -111,12 +111,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     router.push('/dashboard');
   };
 
+  /*REGISTER */
   const register = async (registerData: RegisterData) => {
     const response = await fetch('/api/auth/register', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(registerData),
       credentials: 'include',
     });
@@ -133,6 +132,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     router.push('/dashboard');
   };
 
+  /*LOGOUT */
   const logout = async () => {
     try {
       await fetch('/api/auth/logout', {
@@ -148,6 +148,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  /* REFRESH TOKEN */
   const refreshToken = async () => {
     try {
       const response = await fetch('/api/auth/refresh', {
@@ -155,13 +156,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         credentials: 'include',
       });
 
-      if (response.ok) {
-        const data = await response.json();
-        setAccessToken(data.data.accessToken);
-      } else {
-        // Refresh failed, logout user
+      if (!response.ok) {
         logout();
+        return;
       }
+
+      const data = await response.json();
+      setAccessToken(data.data.accessToken);
     } catch (error) {
       console.error('Token refresh failed:', error);
       logout();
@@ -174,6 +175,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         user,
         accessToken,
         isLoading,
+        isAuthenticated: !!user && !!accessToken,
         login,
         register,
         logout,
@@ -185,9 +187,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   );
 }
 
+/* HOOK */
 export function useAuth() {
   const context = useContext(AuthContext);
-  if (context === undefined) {
+  if (!context) {
     throw new Error('useAuth must be used within an AuthProvider');
   }
   return context;

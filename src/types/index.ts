@@ -7,6 +7,9 @@ import {
 
 // USER TYPES
 
+// Re-export UserRole as Role for backward compatibility
+export type Role = UserRole;
+
 export interface User {
   id: string;
   email: string;
@@ -176,16 +179,18 @@ export interface PaginationParams {
   sortOrder?: 'asc' | 'desc';
 }
 
+export interface PaginationMeta {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+  hasNextPage: boolean;
+  hasPrevPage: boolean;
+}
+
 export interface PaginatedResponse<T> {
   data: T[];
-  pagination: {
-    page: number;
-    limit: number;
-    total: number;
-    totalPages: number;
-    hasNextPage: boolean;
-    hasPrevPage: boolean;
-  };
+  pagination: PaginationMeta;
 }
 
 // API RESPONSE TYPES
@@ -194,13 +199,15 @@ export interface ApiSuccessResponse<T = any> {
   success: true;
   data: T;
   message?: string;
+  meta?: PaginationMeta;
 }
 
 export interface ApiErrorResponse {
   success: false;
   error: {
+    code: string;
     message: string;
-    code?: string;
+    statusCode: number;
     details?: any;
   };
 }

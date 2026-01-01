@@ -1,4 +1,4 @@
-import { NextRequest } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { connectDB } from '@/lib/db';
 import User, { IUser } from '@/models/User';
 import { registerSchema } from '@/validators/auth.schema';
@@ -10,7 +10,7 @@ import {
   getRefreshTokenExpiry,
 } from '@/lib/auth';
 
-/**
+/*
  * POST /api/auth/register
  * Register a new user
  */
@@ -19,10 +19,58 @@ export async function POST(request: NextRequest) {
     // Connect to database
     await connectDB();
 
-    // Parse request body
-    const body = await request.json();
+    // DEFENSIVE CHECK #1: Verify Content-Type header
+    const contentType = request.headers.get('content-type');
 
-    // Validate input
+    if (!contentType || !contentType.includes('application/json')) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: {
+            code: 'INVALID_CONTENT_TYPE',
+            message: 'Content-Type must be application/json',
+            statusCode: 415,
+          },
+        },
+        { status: 415 }
+      );
+    }
+
+    // DEFENSIVE CHECK #2: Safely parse JSON with error handling
+    let body;
+    try {
+      body = await request.json();
+    } catch (jsonError) {
+      console.error('JSON parsing error:', jsonError);
+      return NextResponse.json(
+        {
+          success: false,
+          error: {
+            code: 'INVALID_JSON',
+            message: 'Request body must be valid JSON',
+            statusCode: 400,
+          },
+        },
+        { status: 400 }
+      );
+    }
+
+    // DEFENSIVE CHECK #3: Verify body is not empty
+    if (!body || Object.keys(body).length === 0) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: {
+            code: 'EMPTY_BODY',
+            message: 'Request body cannot be empty',
+            statusCode: 400,
+          },
+        },
+        { status: 400 }
+      );
+    }
+
+    // Validate input with Zod
     const validationResult = registerSchema.safeParse(body);
     if (!validationResult.success) {
       throw new ValidationError(
