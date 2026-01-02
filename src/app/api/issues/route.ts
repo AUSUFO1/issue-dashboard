@@ -92,16 +92,14 @@ export const GET = withAuth(async (request: NextRequest) => {
     // Calculate pagination metadata
     const totalPages = Math.ceil(total / limit);
 
-    return successResponse({
-      data: issues,
-      pagination: {
-        page,
-        limit,
-        total,
-        totalPages,
-        hasNextPage: page < totalPages,
-        hasPrevPage: page > 1,
-      },
+    // ✅ FIXED: Pass data, message, and meta as separate arguments
+    return successResponse(issues, 'Issues fetched successfully', {
+      page,
+      limit,
+      total,
+      totalPages,
+      hasNextPage: page < totalPages,
+      hasPrevPage: page > 1,
     });
   } catch (error) {
     if (error instanceof AppError) {
@@ -155,7 +153,7 @@ export const POST = withAuth(async (request: NextRequest, { user }) => {
       }
     );
 
-    return successResponse(issue, 'Issue created successfully', 201);
+    return successResponse(issue, 'Issue created successfully');
   } catch (error) {
     if (error instanceof AppError) {
       return errorResponse(error);

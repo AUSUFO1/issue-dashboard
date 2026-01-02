@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -32,7 +32,7 @@ import {
   PRIORITY_COLORS,
   TYPE_COLORS,
 } from '@/lib/constants';
-import { IssueListItem, PaginatedResponse } from '@/types';
+import { IssueListItem } from '@/types';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 
@@ -57,24 +57,7 @@ export default function IssuesPage() {
   const [priorityFilter, setPriorityFilter] = useState<string>('all');
   const [typeFilter, setTypeFilter] = useState<string>('all');
 
-  useEffect(() => {
-    // Wait for auth to load
-    if (authLoading) return;
-    if (!accessToken) return;
-
-    fetchIssues();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    authLoading,
-    accessToken,
-    pagination.page,
-    statusFilter,
-    priorityFilter,
-    typeFilter,
-    searchTerm,
-  ]);
-
-  const fetchIssues = async () => {
+  const fetchIssues = useCallback(async () => {
     if (!accessToken) return;
 
     try {
@@ -105,7 +88,10 @@ export default function IssuesPage() {
 
       const data = await response.json();
       setIssues(data.data.data || []);
-      setPagination(data.data.pagination);
+      setPagination((prev) => ({
+        ...prev,
+        ...data.data.pagination,
+      }));
     } catch (error) {
       console.error('Fetch issues error:', error);
       toast.error('Failed to load issues');
@@ -113,7 +99,22 @@ export default function IssuesPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [
+    accessToken,
+    pagination.page,
+    statusFilter,
+    priorityFilter,
+    typeFilter,
+    searchTerm,
+  ]);
+
+  useEffect(() => {
+    // Wait for auth to load
+    if (authLoading) return;
+    if (!accessToken) return;
+
+    fetchIssues();
+  }, [authLoading, accessToken, fetchIssues]);
 
   const handleSearch = () => {
     setPagination((prev) => ({ ...prev, page: 1 }));
@@ -125,6 +126,10 @@ export default function IssuesPage() {
     setPriorityFilter('all');
     setTypeFilter('all');
     setPagination((prev) => ({ ...prev, page: 1 }));
+  };
+
+  const handlePageChange = (newPage: number) => {
+    setPagination((prev) => ({ ...prev, page: newPage }));
   };
 
   const hasActiveFilters =
@@ -456,18 +461,14 @@ export default function IssuesPage() {
             <Button
               variant="outline"
               disabled={!pagination.hasPrevPage}
-              onClick={() =>
-                setPagination((prev) => ({ ...prev, page: prev.page - 1 }))
-              }
+              onClick={() => handlePageChange(pagination.page - 1)}
             >
               Previous
             </Button>
             <Button
               variant="outline"
               disabled={!pagination.hasNextPage}
-              onClick={() =>
-                setPagination((prev) => ({ ...prev, page: prev.page + 1 }))
-              }
+              onClick={() => handlePageChange(pagination.page + 1)}
             >
               Next
             </Button>

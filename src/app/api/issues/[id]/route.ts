@@ -1,6 +1,5 @@
 import { NextRequest } from 'next/server';
 import { withAuth } from '@/middleware/auth';
-import { requireAdmin } from '@/middleware/rbac';
 import { successResponse, errorResponse } from '@/lib/api-response';
 import { AppError } from '@/lib/errors';
 import { connectDB } from '@/lib/db';
@@ -8,20 +7,22 @@ import Issue from '@/models/Issue';
 import AuditLog from '@/models/AuditLog';
 import { updateIssueSchema } from '@/validators/issue.schema';
 import { AuditAction } from '@/types';
+import { ROLES } from '@/lib/constants';
 import mongoose from 'mongoose';
 
-// GET /api/issues/:id - Get single issue with full details
+// GET /api/issues/:id - Get single issue
 export const GET = withAuth(async (_request: NextRequest, context: any) => {
   try {
     await connectDB();
 
     const { id } = context.params;
 
-    // Validate MongoDB ObjectId
+    // Validate issue ID
     if (!mongoose.Types.ObjectId.isValid(id)) {
       throw new AppError('Invalid issue ID', 400);
     }
 
+    // Find issue (exclude soft-deleted)
     const issue = await Issue.findOne({ _id: id, deletedAt: null })
       .populate('assignedTo', 'firstName lastName email')
       .populate('reportedBy', 'firstName lastName email')
@@ -49,7 +50,7 @@ export const PATCH = withAuth(async (request: NextRequest, context: any) => {
     const { id } = context.params;
     const { user } = context;
 
-    // Validate MongoDB ObjectId
+    // Validate issue ID
     if (!mongoose.Types.ObjectId.isValid(id)) {
       throw new AppError('Invalid issue ID', 400);
     }
@@ -57,102 +58,96 @@ export const PATCH = withAuth(async (request: NextRequest, context: any) => {
     const body = await request.json();
     const validatedData = updateIssueSchema.parse(body);
 
-    // Find existing issue
+    // Find issue
     const issue = await Issue.findOne({ _id: id, deletedAt: null });
     if (!issue) {
       throw new AppError('Issue not found', 404);
     }
 
-    // Track changes for audit log
-    const changes: Array<{
-      field: string;
-      oldValue: string;
-      newValue: string;
-      action: AuditAction;
-    }> = [];
+    // Check permissions for certain fields
+    const isAdmin = user.role === ROLES.ADMIN;
+    const isManager = user.role === ROLES.MANAGER;
+    const canEdit = isAdmin || isManager;
 
-    // Check each field for changes
-    if (validatedData.title && validatedData.title !== issue.title) {
-      changes.push({
-        field: 'title',
-        oldValue: issue.title,
-        newValue: validatedData.title,
-        action: AuditAction.UPDATED,
-      });
+    if (!canEdit) {
+      // Regular users can only update status and add comments
+      const allowedFields = ['status'];
+      const updatingFields = Object.keys(validatedData);
+      const hasRestrictedFields = updatingFields.some(
+        (field) => !allowedFields.includes(field)
+      );
+
+      if (hasRestrictedFields) {
+        throw new AppError(
+          'You do not have permission to edit this issue',
+          403
+        );
+      }
     }
 
-    if (
-      validatedData.description &&
-      validatedData.description !== issue.description
-    ) {
-      changes.push({
-        field: 'description',
-        oldValue: issue.description.substring(0, 100) + '...',
-        newValue: validatedData.description.substring(0, 100) + '...',
-        action: AuditAction.UPDATED,
-      });
-    }
-
-    if (validatedData.status && validatedData.status !== issue.status) {
-      changes.push({
-        field: 'status',
-        oldValue: issue.status,
-        newValue: validatedData.status,
-        action: AuditAction.STATUS_CHANGED,
-      });
-    }
-
-    if (validatedData.priority && validatedData.priority !== issue.priority) {
-      changes.push({
-        field: 'priority',
-        oldValue: issue.priority,
-        newValue: validatedData.priority,
-        action: AuditAction.PRIORITY_CHANGED,
-      });
-    }
-
-    if (validatedData.type && validatedData.type !== issue.type) {
-      changes.push({
-        field: 'type',
-        oldValue: issue.type,
-        newValue: validatedData.type,
-        action: AuditAction.UPDATED,
-      });
-    }
-
-    // Handle assignment changes
-    if ('assignedTo' in validatedData) {
-      const oldAssignedTo = issue.assignedTo?.toString() || null;
-      const newAssignedTo = validatedData.assignedTo || null;
-
-      if (oldAssignedTo !== newAssignedTo) {
-        if (newAssignedTo === null) {
-          changes.push({
-            field: 'assignedTo',
-            oldValue: oldAssignedTo || 'unassigned',
-            newValue: 'unassigned',
-            action: AuditAction.UNASSIGNED,
-          });
-        } else {
-          // Verify assignee exists
-          const User = (await import('@/models/User')).default;
-          const assignee = await User.findById(newAssignedTo);
-          if (!assignee) {
-            throw new AppError('Assigned user not found', 404);
-          }
-
-          changes.push({
-            field: 'assignedTo',
-            oldValue: oldAssignedTo || 'unassigned',
-            newValue: newAssignedTo,
-            action: AuditAction.ASSIGNED,
-          });
+    // Verify assignedTo user exists if being updated
+    if (validatedData.assignedTo !== undefined) {
+      if (validatedData.assignedTo) {
+        const User = (await import('@/models/User')).default;
+        const assignee = await User.findById(validatedData.assignedTo);
+        if (!assignee) {
+          throw new AppError('Assigned user not found', 404);
         }
       }
     }
 
+    // Track changes for audit log
+    const changes: any[] = [];
+    const updateFields: Record<string, any> = {};
+
+    // Check each field for changes
+    for (const [key, value] of Object.entries(validatedData)) {
+      const oldValue = issue[key as keyof typeof issue];
+
+      // Handle ObjectId comparison for assignedTo
+      if (key === 'assignedTo') {
+        const oldId = oldValue ? oldValue.toString() : null;
+        const newId = value ? value.toString() : null;
+        if (oldId !== newId) {
+          changes.push({
+            field: key,
+            oldValue: oldId,
+            newValue: newId,
+          });
+          updateFields[key] = value;
+        }
+      }
+      // Handle array comparison for tags
+      else if (key === 'tags') {
+        const oldTags = (oldValue as string[]) || [];
+        const newTags = (value as string[]) || [];
+        if (JSON.stringify(oldTags.sort()) !== JSON.stringify(newTags.sort())) {
+          changes.push({
+            field: key,
+            oldValue: oldTags.join(', '),
+            newValue: newTags.join(', '),
+          });
+          updateFields[key] = value;
+        }
+      }
+      // Handle simple value comparison
+      else if (oldValue !== value) {
+        changes.push({
+          field: key,
+          oldValue: String(oldValue),
+          newValue: String(value),
+        });
+        updateFields[key] = value;
+      }
+    }
+
+    // If status changed to RESOLVED, set resolvedAt
+    if (updateFields.status === 'RESOLVED' && issue.status !== 'RESOLVED') {
+      updateFields.resolvedAt = new Date();
+    }
+
     // Update issue
-    Object.assign(issue, validatedData);
+    Object.assign(issue, updateFields);
     await issue.save();
 
     // Populate references
@@ -161,17 +156,15 @@ export const PATCH = withAuth(async (request: NextRequest, context: any) => {
       { path: 'reportedBy', select: 'firstName lastName email' },
     ]);
 
-    // Log all changes to audit trail
-    const userId = new mongoose.Types.ObjectId(user.userId);
-    await Promise.all(
-      changes.map((change) =>
-        AuditLog.logAction(issue._id, userId, change.action, {
-          field: change.field,
-          oldValue: change.oldValue,
-          newValue: change.newValue,
-        })
-      )
-    );
+    // Log each change in audit trail
+    for (const change of changes) {
+      await AuditLog.logAction(
+        issue._id,
+        new mongoose.Types.ObjectId(user.userId),
+        AuditAction.UPDATED,
+        change
+      );
+    }
 
     return successResponse(issue, 'Issue updated successfully');
   } catch (error) {
@@ -183,23 +176,25 @@ export const PATCH = withAuth(async (request: NextRequest, context: any) => {
   }
 });
 
-// DELETE /api/issues/:id - Soft delete issue (admin only)
+// DELETE /api/issues/:id - Delete issue (soft delete, admin/manager only)
 export const DELETE = withAuth(async (_request: NextRequest, context: any) => {
   try {
-    // Apply RBAC check
-    const rbacCheck = await requireAdmin(context);
-    if (rbacCheck) return rbacCheck; // Return error response if not admin
-
     await connectDB();
 
     const { id } = context.params;
     const { user } = context;
 
-    // Validate MongoDB ObjectId
+    // Validate issue ID
     if (!mongoose.Types.ObjectId.isValid(id)) {
       throw new AppError('Invalid issue ID', 400);
     }
 
+    // Check permissions
+    if (user.role !== ROLES.ADMIN && user.role !== ROLES.MANAGER) {
+      throw new AppError('You do not have permission to delete issues', 403);
+    }
+
+    // Find issue
     const issue = await Issue.findOne({ _id: id, deletedAt: null });
     if (!issue) {
       throw new AppError('Issue not found', 404);

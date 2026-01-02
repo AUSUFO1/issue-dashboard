@@ -39,7 +39,9 @@ export default function IssueDetailPage() {
   const router = useRouter();
   const params = useParams();
   const { user } = useAuth();
-  const issueId = params.id as string;
+
+  // FIX: Handle params properly - it might be a Promise in Next.js 15
+  const [issueId, setIssueId] = useState<string | null>(null);
 
   const [issue, setIssue] = useState<Issue | null>(null);
   const [comments, setComments] = useState<Comment[]>([]);
@@ -48,18 +50,36 @@ export default function IssueDetailPage() {
   const [isSubmittingComment, setIsSubmittingComment] = useState(false);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
 
+  // FIX: Extract issueId from params
   useEffect(() => {
-    fetchIssue();
-    fetchComments();
+    const id = Array.isArray(params.id) ? params.id[0] : params.id;
+    if (id) {
+      setIssueId(id);
+    }
+  }, [params.id]);
+
+  useEffect(() => {
+    if (issueId) {
+      fetchIssue();
+      fetchComments();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [issueId]);
 
   const fetchIssue = async () => {
+    if (!issueId) return;
+
     try {
-      const response = await fetch(`/api/issues/${issueId}`);
-      if (!response.ok) throw new Error('Failed to fetch issue');
+      const response = await fetch(`/api/issues/${issueId}`, {
+        credentials: 'include', // ✅ Include auth cookie
+      });
 
       const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error?.message || 'Failed to fetch issue');
+      }
+
       setIssue(data.data);
     } catch (error) {
       console.error('Fetch issue error:', error);
@@ -70,11 +90,19 @@ export default function IssueDetailPage() {
   };
 
   const fetchComments = async () => {
+    if (!issueId) return;
+
     try {
-      const response = await fetch(`/api/issues/${issueId}/comments`);
-      if (!response.ok) throw new Error('Failed to fetch comments');
+      const response = await fetch(`/api/issues/${issueId}/comments`, {
+        credentials: 'include', // ✅ Include auth cookie
+      });
 
       const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error?.message || 'Failed to fetch comments');
+      }
+
       setComments(data.data);
     } catch (error) {
       console.error('Fetch comments error:', error);
@@ -82,11 +110,14 @@ export default function IssueDetailPage() {
   };
 
   const handleStatusChange = async (newStatus: IssueStatus) => {
+    if (!issueId) return;
+
     try {
       setIsUpdatingStatus(true);
       const response = await fetch(`/api/issues/${issueId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include', // ✅ Include auth cookie
         body: JSON.stringify({ status: newStatus }),
       });
 
@@ -104,13 +135,14 @@ export default function IssueDetailPage() {
   };
 
   const handleAddComment = async () => {
-    if (!commentText.trim()) return;
+    if (!issueId || !commentText.trim()) return;
 
     try {
       setIsSubmittingComment(true);
       const response = await fetch(`/api/issues/${issueId}/comments`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include', // ✅ Include auth cookie
         body: JSON.stringify({ text: commentText }),
       });
 
@@ -133,7 +165,8 @@ export default function IssueDetailPage() {
     return `${firstName[0]}${lastName[0]}`.toUpperCase();
   };
 
-  if (loading) {
+  // Show loading while extracting issueId
+  if (!issueId || loading) {
     return (
       <div className="space-y-6">
         <Skeleton className="h-10 w-64" />

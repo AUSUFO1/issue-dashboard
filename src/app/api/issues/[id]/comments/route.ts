@@ -1,6 +1,10 @@
 import { NextRequest } from 'next/server';
 import { withAuth } from '@/middleware/auth';
-import { successResponse, errorResponse } from '@/lib/api-response';
+import {
+  successResponse,
+  errorResponse,
+  createdResponse,
+} from '@/lib/api-response';
 import { AppError } from '@/lib/errors';
 import { connectDB } from '@/lib/db';
 import Issue from '@/models/Issue';
@@ -37,7 +41,7 @@ export const GET = withAuth(async (_request: NextRequest, context: any) => {
       .populate('userId', 'firstName lastName email')
       .lean();
 
-    return successResponse(comments);
+    return successResponse(comments, 'Comments fetched successfully');
   } catch (error) {
     if (error instanceof AppError) {
       return errorResponse(error);
@@ -92,7 +96,7 @@ export const POST = withAuth(async (request: NextRequest, context: any) => {
       }
     );
 
-    return successResponse(comment, 'Comment added successfully', 201);
+    return createdResponse(comment, 'Comment added successfully');
   } catch (error) {
     if (error instanceof AppError) {
       return errorResponse(error);
