@@ -53,7 +53,7 @@ export default function DashboardPage() {
 
       const res = await fetch('/api/stats', {
         headers: {
-          Authorization: `Bearer ${accessToken}`, // ✅ send token
+          Authorization: `Bearer ${accessToken}`,
         },
         credentials: 'include',
       });
